@@ -46,18 +46,16 @@ router.delete('/:id', (req, res) => {
 
 // Insert insurance
 router.post('/', (req, res) => {
-    let ins = req.body;
-    var sql = "SET @idInsurance = ?; SET @referenceNumber = ?; SET @insuranceDate = ?; SET @payment = ?; \
-    SET @User_idUser = ?; SET @Airline_idAirline = ?; \
-    CALL InsuranceInsertOrUpdate(@idInsurance,@referenceNumber,@insuranceDate,@payment,@User_idUser,@Airline_idAirline);";
+    let insurance = req.body;
+    var sql = `INSERT INTO insurance (referenceNumber, insuranceDate, payment, User_idUser, Airline_idAirline)\
+        VALUES ('${insurance.referenceNumber}','${insurance.insuranceDate}',${insurance.payment},${insurance.User_idUser}, ${insurance.Airline_idAirline})`;
+    console.log(sql);
 
     mysql.getConnection(function (err, mysqlConnection) {
-        mysqlConnection.query(sql, [ins.idInsurance, ins.referenceNumber, ins.insuranceDate, ins.payment, ins.User_idUser, ins.Airline_idAirline], (err, rows, fields) => {
+        mysqlConnection.query(sql, (err, rows, fields) => {
             if (!err)
-                rows.forEach(element => {
-                    if (element.constructor == Array)
-                        res.send('Inserted insurance id: ' + element[0].idInsurance);
-                });
+                res.end('Inserted insurance');
+
             else
                 console.log(err);
         })
@@ -67,25 +65,22 @@ router.post('/', (req, res) => {
 })
 
 // Update insurance
-router.put('/', (req, res) => {
-    let ins = req.body;
-    var sql = "SET @idInsurance = ?; SET @referenceNumber = ?; SET @insuranceDate = ?; SET @payment = ?; \
-    SET @User_idUser = ?; SET @Airline_idAirline = ?; \
-    CALL InsuranceInsertOrUpdate(@idInsurance,@referenceNumber,@insuranceDate,@payment,@User_idUser,@Airline_idAirline);";
+router.put('/:id', (req, res) => {
+    let id = req.params.id;
+    let insurance = req.body;
+    var sql = `UPDATE insurance SET referenceNumber='${insurance.referenceNumber}', insuranceDate='${insurance.insuranceDate}', \
+    payment='${insurance.payment}', User_idUser='${insurance.User_idUser}', Airline_idAirline=${insurance.Airline_idAirline}, \
+               WHERE idInsurance=${id}`;
 
     mysql.getConnection(function (err, mysqlConnection) {
-        mysqlConnection.query(sql, [ins.idInsurance, ins.referenceNumber, ins.insuranceDate, ins.payment, ins.User_idUser, ins.Airline_idAirline], (err, rows, fields) => {
+        mysqlConnection.query(sql, (err, rows, fields) => {
             if (!err)
-                rows.forEach(element => {
-                    if (element.constructor == Array)
-                        res.send('Updated successfully');
-                });
+                res.send('Updated successfully');
             else
                 console.log(err);
         })
         mysqlConnection.release();
     })
-
 })
 
 module.exports = router;
