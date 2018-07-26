@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 var mongoose = require('mongoose');
-mongoose.connect('mongodb://BCTeam:haBrap2aSPup@164.8.251.180/BCTeam');
+mongoose.connect('mongodb://admin-pkp1:admin-pkp1@ds247001.mlab.com:47001/smartinstech');
 var db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
 db.once('open', function () {
