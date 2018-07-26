@@ -1,88 +1,74 @@
 const express = require('express');
 const router = express.Router();
-var mysql = require('../dbHelpers/connection.js').pool;
+var mongoose = require('mongoose');
+mongoose.connect('mongodb://BCTeam:haBrap2aSPup@164.8.251.180/BCTeam');
+var db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', function () {
+    console.log("Connected to MongoDB!");
+});
 
-// Get all insurances
-router.get('/', (req, res) => {
+var insuranceSchema = mongoose.Schema({
+    baggageNumber: Number,
+    insuranceDate: { type: Date, default: Date.now },
+    selfPayout: Boolean,
+    user: {
+        ethAddress: String
+    },
+    airline: {
+        ethAddress: String
+    }
+});
 
-    mysql.getConnection(function (err, mysqlConnection) {
-        mysqlConnection.query('SELECT * FROM Insurance', (err, rows, fields) => {
-            if (!err)
-                res.send(rows);
-            else
-                console.log(err);
-        })
-        mysqlConnection.release();
+var Insurances = mongoose.model('smartinstech_insurances', insuranceSchema);
+
+router.get('/', async (req, res, next) => {
+    Insurances.find(function (err, result) {
+        if (err) return next(err);
+        res.send(result);
     })
-})
+});
 
-// Get specific insurance
-router.get('/:id', (req, res) => {
-
-    mysql.getConnection(function (err, mysqlConnection) {
-        mysqlConnection.query('SELECT * FROM Insurance WHERE idInsurance = ?', [req.params.id], (err, rows, fields) => {
-            if (!err)
-                res.send(rows);
-            else
-                console.log(err);
-        })
-        mysqlConnection.release();
+router.get('/:id', async (req, res, next) => {
+    Insurances.findById(req.params.id, function (err, result) {
+        if (err) return next(err);
+        res.send(result);
     })
-})
+});
 
-// Delete insurance
-router.delete('/:id', (req, res) => {
-
-    mysql.getConnection(function (err, mysqlConnection) {
-        mysqlConnection.query('DELETE FROM Insurance WHERE idInsurance = ?', [req.params.id], (err, rows, fields) => {
-            if (!err)
-                res.send('Deleted successfully');
-            else
-                console.log(err);
-        })
-        mysqlConnection.release();
+router.post('/', (req, res, next) => {
+    let obj = req.body;
+    let data = new Insurances({
+        baggageNumber: obj.baggageNumber,
+        insuranceDate: obj.insuranceDate,
+        selfPayout: obj.selfPayout,
+        user: {
+            ethAddress: obj.user.ethAddress
+        },
+        airline: {
+            ethAddress: obj.airline.ethAddress
+        }
+    });
+    data.save(function (err) {
+        if (err) {
+            return next(err);
+        }
+        res.send('Insurance Created successfully')
     })
-})
+});
 
-// Insert insurance
-router.post('/', (req, res) => {
-    let insurance = req.body;
-    var sql = `INSERT INTO insurance (referenceNumber, insuranceDate, payment, User_idUser, Airline_idAirline)\
-        VALUES ('${insurance.referenceNumber}','${insurance.insuranceDate}',${insurance.payment},${insurance.User_idUser}, ${insurance.Airline_idAirline})`;
-    console.log(sql);
+router.put('/:id', (req, res, next) => {
+    Insurances.findByIdAndUpdate(req.params.id, { $set: req.body }, function (err, data) {
+        if (err) return next(err);
+        res.send('Insurance updated.');
+    });
+});
 
-    mysql.getConnection(function (err, mysqlConnection) {
-        mysqlConnection.query(sql, (err, rows, fields) => {
-            if (!err)
-                res.end('Inserted insurance');
-
-            else
-                console.log(err);
-        })
-        mysqlConnection.release();
+router.delete('/:id', async (req, res, next) => {
+    Insurances.findByIdAndRemove(req.params.id, function (err) {
+        if (err) return next(err);
+        res.send('Insurance successfully removed!');
     })
-
-})
-
-// Update insurance
-router.put('/:id', (req, res) => {
-    let id = req.params.id;
-    let insurance = req.body;
-    var sql = `UPDATE insurance SET referenceNumber='${insurance.referenceNumber}', insuranceDate='${insurance.insuranceDate}', \
-    payment='${insurance.payment}', User_idUser='${insurance.User_idUser}', Airline_idAirline=${insurance.Airline_idAirline}, \
-               WHERE idInsurance=${id}`;
-
-    mysql.getConnection(function (err, mysqlConnection) {
-        mysqlConnection.query(sql, (err, rows, fields) => {
-            if (!err)
-                res.send('Updated successfully');
-            else
-                console.log(err);
-        })
-        mysqlConnection.release();
-    })
-})
+});
 
 module.exports = router;
-
-

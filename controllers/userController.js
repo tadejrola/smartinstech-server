@@ -1,165 +1,78 @@
 const express = require('express');
 const router = express.Router();
-var mysql = require('../dbHelpers/connection.js').pool;
-var web3 = require("../abi/web3config.js");
-var loginContract = require("../abi/loginAbi.js")(web3);
-var baggageInsuranceContract = require("../abi/baggageInsuranceAbi.js")(web3);
+var mongoose = require('mongoose');
+mongoose.connect('mongodb://BCTeam:haBrap2aSPup@164.8.251.180/BCTeam');
+var db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', function () {
+    console.log("Connected to MongoDB!");
+});
 
+var userSchema = mongoose.Schema({
+    firstName: String,
+    lastName: String,
+    email: String,
+    address: String,
+    city: String,
+    postCode: Number,
+    country: String,
+    TRR: String,
+    ethAddress: String,
+    username: String,
+    password: String
+});
 
-router.post('/login', (req, res, next) => {
-    let username = req.body.email;
-    let password = req.body.pwd;
-    let address = "";
-    loginContract.methods.getAddressFromUsername(username).call((error, result) => {
-        if (error)
-            res.status(404).json({
-                status: error
-            });
-        else {
-            console.log(result);
-            address = result;
-            web3.eth.personal.unlockAccount(address, password, 20).then((response) => {
-                status = response;
-                if (response) {
+var Users = mongoose.model('smartinstech_users', userSchema);
 
-                    console.log("račun odklenjen");
-                    baggageInsuranceContract.methods.getInsurance(1).call((error, result) => {
-                        if (error)
-                            res.status(404).json(error);
-                        else {
-                            if (result)
-                                res.json(result);
-                            else res.status(403).json({
-                                error: "not insurance"
-                            });
-                        }
-                    });
-                } else res.status(403).json({
-                    status: response
-                });
-            }).catch((error) => {
-                console.log(error);
-                res.status(403).json({
-                    status: error
-                })
-            });
+router.get('/', async (req, res, next) => {
+    Users.find(function (err, result) {
+        if (err) return next(err);
+        res.send(result);
+    })
+});
+
+router.get('/:id', async (req, res, next) => {
+    Users.findById(req.params.id, function (err, result) {
+        if (err) return next(err);
+        res.send(result);
+    })
+});
+
+router.post('/', (req, res, next) => {
+    let obj = req.body;
+    let data = new Users({
+        firstName: obj.firstName,
+        lastName: obj.lastName,
+        email: obj.email,
+        address: obj.address,
+        city: obj.city,
+        postCode: obj.postCode,
+        country: obj.country,
+        TRR: obj.TRR,
+        ethAddress: obj.ethAddress,
+        username: obj.username,
+        password: obj.password
+    });
+    data.save(function (err) {
+        if (err) {
+            return next(err);
         }
+        res.send('User Created successfully')
+    })
+});
+
+router.put('/:id', (req, res, next) => {
+    Users.findByIdAndUpdate(req.params.id, { $set: req.body }, function (err, data) {
+        if (err) return next(err);
+        res.send('User updated.');
     });
 });
 
-// Get all users
-router.get('/', (req, res) => {
-    mysql.getConnection(function (err, mysqlConnection) {
-        mysqlConnection.query('SELECT * FROM User', (err, rows, fields) => {
-            if (!err)
-                res.send(rows);
-            else
-                console.log(err);
-        })
-        mysqlConnection.release();
+router.delete('/:id', async (req, res, next) => {
+    Users.findByIdAndRemove(req.params.id, function (err) {
+        if (err) return next(err);
+        res.send('User successfully removed!');
     })
-
-    console.log(web3.version);
-
-})
-
-// Get specific user
-router.get('/:id', (req, res) => {
-    mysql.getConnection(function (err, mysqlConnection) {
-        mysqlConnection.query('SELECT * FROM User WHERE idUser = ?', [req.params.id], (err, rows, fields) => {
-            if (!err)
-                res.send(rows);
-            else
-                console.log(err);
-        })
-        mysqlConnection.release();
-    })
-
-})
-
-// Delete user
-router.delete('/:id', (req, res) => {
-    mysql.getConnection(function (err, mysqlConnection) {
-        mysqlConnection.query('DELETE FROM User WHERE idUser = ?', [req.params.id], (err, rows, fields) => {
-            if (!err)
-                res.send('Deleted successfully');
-            else
-                console.log(err);
-        })
-        mysqlConnection.release();
-    })
-
-})
-
-// Insert user
-router.post('/', async (req, res) => {
-    let username = req.body.email;
-    let password = req.body.pwd;
-
-    await loginContract.methods.getAddressFromUsername(username).call((error, result) => {
-        if (error)
-            res.status(500).json(error);
-        else {
-            if (result != "0x0000000000000000000000000000000000000000") {
-                res.status(404).json(result);
-            } else {
-                web3.eth.personal.newAccount(password).then((addr) => {
-                    console.log("addr: " + addr);
-                    let abi_encoded = loginContract.methods.registerUsername(addr, username).encodeABI();
-                    let tx = {
-                        from: addr,
-                        gas: 2000000,
-                        gasPrice: 0,
-                        to: loginContract.options.address,
-                        data: abi_encoded
-                    };
-                    let tran = web3.eth.personal.sendTransaction(tx, password).then((tran_res) => {
-                        console.log("Registracija uporabnika: " + tran_res);
-                    });
-                    let user = req.body;
-                    var sql = `INSERT INTO user (firstName, lastName, email, address, city, postCode, \
-                        country, TRR, ethAddress) VALUES ('${user.firstName}','${user.lastName}','${user.email}', \
-                            '${user.address}','${user.city}',${user.postCode},'${user.country}','${user.TRR}','${addr}')`;
-                    console.log(sql);
-
-                    mysql.getConnection(function (err, mysqlConnection) {
-                        mysqlConnection.query(sql, (err, rows, fields) => {
-                            if (!err)
-                                res.end('Inserted user');
-
-                            else
-                                console.log(err);
-                        })
-                        mysqlConnection.release();
-                    })
-
-                });
-            }
-        }
-    });
-})
-
-// Update user
-router.put('/:id', (req, res) => {
-    let user = req.body;
-    let id = req.params.id;
-    var sql = `UPDATE user SET firstName='${user.firstName}', lastName='${user.lastName}', \
-               address='${user.address}', city='${user.city}', postCode=${user.postCode}, \
-               country='${user.country}', TRR='${user.TRR}' \
-               WHERE idUser=${id}`;
-
-    mysql.getConnection(function (err, mysqlConnection) {
-        mysqlConnection.query(sql, (err, rows, fields) => {
-            if (!err)
-                res.send('Updated successfully');
-            else
-                console.log(err);
-        })
-        mysqlConnection.release();
-    })
-})
+});
 
 module.exports = router;
-
-
-
