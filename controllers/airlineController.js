@@ -37,9 +37,29 @@ router.get('/:id', async (req, res, next) => {
     })
 });
 
+router.post('/login', (req, res, next) => {
+
+    let obj = req.body;
+
+    Airlines.findOne({ username: obj.username }, function (err, result) {
+        if (err) return next(err);
+        if (result != null) {
+            if (obj.password == result.password) {
+                res.send(result);
+            }
+            else {
+                res.send(401);
+            }
+        }
+        else {
+            res.send(404);
+        }
+    })
+
+});
+
 router.post('/', (req, res, next) => {
     let obj = req.body;
-    console.log(obj);
     let data = new Airlines({
         name: obj.name,
         email: obj.email,
